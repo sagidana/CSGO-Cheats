@@ -137,12 +137,12 @@ end:
 // keep updated from: https://github.com/frk1/hazedumper/blob/master/csgo.hpp
 
 // client.dll
-#define OFFSET_ENTITY_LIST                      (0x4DA521C) // eseential
-#define OFFSET_VIEW_MATRIX                      (0x4D96B34) // essential
-#define OFFSET_GLOW_OBJECT_MANAGER              (0x52ED6A8)
+#define OFFSET_ENTITY_LIST	(0x4e01024) // eseential
+#define OFFSET_VIEW_MATRIX	(0x4df1e54) // essential
+#define OFFSET_GLOW_OBJECT_MANAGER              (0x53255D8)
 
 // engine.dll
-#define OFFSET_CLIENT_STATE                     (0x589FE4)  // eseential
+#define OFFSET_CLIENT_STATE	(0x59f19c)  // eseential
 
 // relative to client_state
 #define OFFSET_GET_LOCAL_PLAYER                 (0x180)     // eseential
@@ -445,7 +445,6 @@ int main(){
     // start drawing context
     dc_handle = GetDC(NULL);
     ASSERT_TO(dc_handle == NULL, end_close_proc);
-
 
     while(get_local_player()){      // while we in active game
         struct location_t local_loc = player_get_location(get_local_player());
