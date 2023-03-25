@@ -145,7 +145,7 @@ end:
 #define OFFSET_CLIENT_STATE	(0x59f19c)  // eseential
 
 // relative to client_state
-#define OFFSET_GET_LOCAL_PLAYER                 (0x180)     // eseential
+#define OFFSET_GET_LOCAL_PLAYER             (0x180)     // eseential
 
 
 // relative to player
