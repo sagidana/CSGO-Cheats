@@ -18,7 +18,7 @@ def update_source(path, client_state, entity_list, view_matrix):
 
     source = re.sub("OFFSET_ENTITY_LIST.*\(0x[0-9a-zA-Z]+\)", f"OFFSET_ENTITY_LIST\t({entity_list})", source)
     source = re.sub("OFFSET_VIEW_MATRIX.*\(0x[0-9a-zA-Z]+\)", f"OFFSET_VIEW_MATRIX\t({view_matrix})", source)
-    source = re.sub("OFFSET_CLIENT_STATE.*\(0x[0-9a-zA-Z]+\)", f"OFFSET_CLIENT_STATE\t({client_state})", source)
+    source = re.sub("OFFSET_CLIENT_STATE\s+.*\(0x[0-9a-zA-Z]+\)", f"OFFSET_CLIENT_STATE\t({client_state})", source)
 
     with open(path, 'w') as main:
         main.write(source)
