@@ -23,9 +23,6 @@ def update_source(path, client_state, entity_list, view_matrix):
     with open(path, 'w') as main:
         main.write(source)
 
-    
-
-
 if __name__=='__main__':
     try:
         offsets = get_offsets()

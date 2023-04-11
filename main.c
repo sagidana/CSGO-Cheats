@@ -137,12 +137,13 @@ end:
 // keep updated from: https://github.com/frk1/hazedumper/blob/master/csgo.hpp
 
 // client.dll
-#define OFFSET_ENTITY_LIST	(0x4e01024) // eseential
-#define OFFSET_VIEW_MATRIX	(0x4df1e54) // essential
+#define OFFSET_ENTITY_LIST	(0x4dfffc4) // eseential
+#define OFFSET_VIEW_MATRIX	(0x4df0df4) // essential
 #define OFFSET_GLOW_OBJECT_MANAGER              (0x53255D8)
 
 // engine.dll
 #define OFFSET_CLIENT_STATE	(0x59f19c)  // eseential
+#define OFFSET_CLIENT_STATE_VIEW_ANGLES	(0x4d90)
 
 // relative to client_state
 #define OFFSET_GET_LOCAL_PLAYER             (0x180)     // eseential
@@ -152,6 +153,8 @@ end:
 #define OFFSET_PLAYER_TEAM_NUM                  (0xF4)      // essential    // team of the player
 #define OFFSET_PLAYER_DORMANT                   (0xED)      // essential    // is player real
 #define OFFSET_PLAYER_VEC_ORIGIN                (0x138)     // essential    // location of the player
+#define OFFSET_PLAYER_SPOTTED                   (0x980)
+#define OFFSET_PLAYER_PUNCH_ANGLE               (0x303C)
 #define OFFSET_PLAYER_BONE_MATRIX               (0x26A8)    // essential    // the bone matrix of the player this is to get to the head
 #define BONE_HEAD_ID (8)                                    // essentail    // the id of the head bone.
 #define OFFSET_PLAYER_HEALTH                    (0x100)     // essential    // the health of the player
@@ -210,7 +213,8 @@ struct position_t{
 
 // -------------------------------------------------
 
-struct position_t game_to_screen(struct location_t location){
+struct position_t game_to_screen(struct location_t location)
+{
     int num;
     struct position_t position = {0};
     struct view_matrix_t matrix = {0};
@@ -237,7 +241,8 @@ end:
     return position;
 }
 
-unsigned char* get_player(int index){
+unsigned char* get_player(int index)
+{
 
     unsigned char* player = NULL;
     read(   client_base + OFFSET_ENTITY_LIST + (0x10 * index),
@@ -247,7 +252,8 @@ unsigned char* get_player(int index){
     return player;
 }
 
-unsigned char* get_glow_object_manager(){
+unsigned char* get_glow_object_manager(void)
+{
 
     unsigned char* glow_object_manager = NULL;
     read(   client_base + OFFSET_GLOW_OBJECT_MANAGER,
@@ -257,7 +263,8 @@ unsigned char* get_glow_object_manager(){
     return glow_object_manager;
 }
 
-unsigned char* get_client_state(){
+unsigned char* get_client_state(void)
+{
 
     unsigned char* client_state = NULL;
     read(   engine_base + OFFSET_CLIENT_STATE,
@@ -268,7 +275,25 @@ unsigned char* get_client_state(){
     return client_state;
 }
 
-unsigned char* get_local_player(){
+struct location_t get_view_angles(void)
+{
+    struct location_t ret;
+    ret.x = -1;
+    ret.y = -1;
+    ret.z = -1;
+
+    unsigned char* client_state = get_client_state();
+    ASSERT_TO(client_base == NULL, end);
+
+    read(   client_state + OFFSET_CLIENT_STATE_VIEW_ANGLES,
+            &ret,
+            sizeof(ret));
+end:
+    return ret;
+}
+
+unsigned char* get_local_player(void)
+{
     int offset = -1;
     unsigned char* local_player = NULL;
     unsigned char* client_state = get_client_state();
@@ -284,7 +309,8 @@ end:
     return local_player;
 }
 
-int player_get_team(unsigned char* player){
+int player_get_team(unsigned char* player)
+{
     int team_num = -1;
 
     read(   player + OFFSET_PLAYER_TEAM_NUM,
@@ -294,7 +320,8 @@ int player_get_team(unsigned char* player){
     return team_num;
 }
 
-int player_get_health(unsigned char* player){
+int player_get_health(unsigned char* player)
+{
     int health = -1;
 
     read(   player + OFFSET_PLAYER_HEALTH,
@@ -304,7 +331,19 @@ int player_get_health(unsigned char* player){
     return health;
 }
 
-int player_get_glow_index(unsigned char* player){
+int player_get_spotted(unsigned char* player)
+{
+    int spotted = -1;
+
+    read(   player + OFFSET_PLAYER_SPOTTED,
+            &spotted,
+            sizeof(spotted));
+
+    return spotted;
+}
+
+int player_get_glow_index(unsigned char* player)
+{
     int glow_index = -1;
 
     read(   player + OFFSET_GLOW_INDEX,
@@ -314,7 +353,8 @@ int player_get_glow_index(unsigned char* player){
     return glow_index;
 }
 
-int player_is_real(unsigned char* player){
+int player_is_real(unsigned char* player)
+{
     char dormant = 0;
 
     read(   player + OFFSET_PLAYER_DORMANT,
@@ -324,7 +364,8 @@ int player_is_real(unsigned char* player){
     return dormant == 0;
 }
 
-struct location_t player_get_head_location(unsigned char* player){
+struct location_t player_get_head_location(unsigned char* player)
+{
     struct location_t head_location = {
         .x = -1,
         .y = -1,
@@ -352,7 +393,8 @@ end:
     return head_location;
 }
 
-struct location_t player_get_location(unsigned char* player){
+struct location_t player_get_location(unsigned char* player)
+{
     struct location_t location;
     read(player + OFFSET_PLAYER_VEC_ORIGIN, 
             &location, 
@@ -360,7 +402,8 @@ struct location_t player_get_location(unsigned char* player){
     return location;
 }
 
-void draw_point(float x, float y, float width){
+void draw_point(float x, float y, float width)
+{
     HDC h_dc = GetDC(NULL);
     ASSERT_TO(h_dc == NULL, end);
 
@@ -401,7 +444,8 @@ float distance( float x_1,
     return sqrt(pow(x_2 - x_1, 2) + pow(y_2 - y_1, 2));
 }
 
-void glow_enenmy(unsigned char* player){
+void glow_enenmy(unsigned char* player)
+{
     unsigned char* glow_object_manager = get_glow_object_manager();
     int glow_index = player_get_glow_index(player);
     struct glow_object_t enemy_glow = {
@@ -430,7 +474,10 @@ void glow_enenmy(unsigned char* player){
 
 #define MAX_PLAYERS (32)
 
-int main(){
+// GetAsyncKeyState
+
+int main(void)
+{
     struct position_t enemies_positions[MAX_PLAYERS];
 
     csgo_handle = open_csgo();
@@ -463,7 +510,13 @@ int main(){
             // if player in my team skip.
             if (player_get_team(player) == player_get_team(get_local_player())) continue;
             
+            // TODO
+            // if (!player_get_spotted(player)){
+                // continue;
+            // }
+
             // glow_enenmy(player); // WIP:
+            struct location_t view_angles = get_view_angles();
 
             // Draw head of enemy.
             struct location_t head_loc = player_get_head_location(player);
