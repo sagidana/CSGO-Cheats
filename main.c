@@ -562,6 +562,9 @@ int main(void)
 
     unsigned char* local_player = NULL;
     while(local_player = get_local_player()){      // while we in active game
+
+        // if (!(GetAsyncKeyState(VK_CAPITAL) & 0x8000)) continue;
+
         struct location_t local_loc = player_get_location(local_player);
         struct location_t view_offset = player_get_view_offset(local_player);
         local_loc.x += view_offset.x;
