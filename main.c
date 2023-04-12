@@ -4,6 +4,9 @@
 #include <tchar.h>
 #include <stdio.h>
 #include <math.h>
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 #pragma comment (lib, "User32.lib")
 #pragma comment (lib, "Gdi32.lib")
@@ -143,7 +146,7 @@ end:
 
 // engine.dll
 #define OFFSET_CLIENT_STATE	(0x59f19c)  // eseential
-#define OFFSET_CLIENT_STATE_VIEW_ANGLES	(0x4d90)
+#define OFFSET_CLIENT_STATE_VIEW_ANGLES	    (0x4d90)
 
 // relative to client_state
 #define OFFSET_GET_LOCAL_PLAYER             (0x180)     // eseential
@@ -154,6 +157,7 @@ end:
 #define OFFSET_PLAYER_DORMANT                   (0xED)      // essential    // is player real
 #define OFFSET_PLAYER_VEC_ORIGIN                (0x138)     // essential    // location of the player
 #define OFFSET_PLAYER_SPOTTED                   (0x980)
+#define OFFSET_PLAYER_VEC_VIEW_OFFSET           (0x108)
 #define OFFSET_PLAYER_PUNCH_ANGLE               (0x303C)
 #define OFFSET_PLAYER_BONE_MATRIX               (0x26A8)    // essential    // the bone matrix of the player this is to get to the head
 #define BONE_HEAD_ID (8)                                    // essentail    // the id of the head bone.
@@ -342,6 +346,28 @@ int player_get_spotted(unsigned char* player)
     return spotted;
 }
 
+struct location_t player_get_aim_punch(unsigned char* player)
+{
+    struct location_t ret;
+
+    read(   player + OFFSET_PLAYER_PUNCH_ANGLE,
+            &ret,
+            sizeof(ret));
+
+    return ret;
+}
+
+struct location_t player_get_view_offset(unsigned char* player)
+{
+    struct location_t ret;
+
+    read(   player + OFFSET_PLAYER_VEC_VIEW_OFFSET,
+            &ret,
+            sizeof(ret));
+
+    return ret;
+}
+
 int player_get_glow_index(unsigned char* player)
 {
     int glow_index = -1;
@@ -470,6 +496,47 @@ void glow_enenmy(unsigned char* player)
     printf("num: %d\n", num);
 }
 
+struct location_t to_vector(struct location_t view)
+{
+    struct location_t ret;
+
+    ret.x = cos(view.y * M_PI / 180.f) * cos(view.x * M_PI / 180.f);
+    ret.y = sin(view.y * M_PI / 180.f) * cos(view.x * M_PI / 180.f);
+    ret.z = sin(view.x * M_PI / 180.f);
+
+    double length = sqrt(ret.x * ret.x + ret.y * ret.y + ret.z * ret.z);
+
+    ret.x /= length;
+    ret.y /= length;
+    ret.z /= length;
+
+    return ret;
+}
+
+int is_visible( struct location_t enemy_location,
+                struct location_t local_location)
+{
+    struct location_t view_angles = get_view_angles();
+
+    struct location_t aim_loc = to_vector(view_angles);
+
+    double pos_x = enemy_location.x - local_location.x;
+    double pos_y = enemy_location.y - local_location.y;
+    double pos_z = enemy_location.z - local_location.z;
+
+    double dot_product = aim_loc.x * pos_x + aim_loc.y * pos_y + aim_loc.z * pos_z;
+
+    double distance = sqrt( pow(local_location.x - enemy_location.x, 2) + 
+                            pow(local_location.y - enemy_location.y, 2) + 
+                            pow(local_location.z - enemy_location.z, 2));
+    double angle = acos(dot_product / distance);
+
+    angle = angle * 180.0 / M_PI;
+
+    if (angle < 90.0 / 2.0) return 1;
+    return 0;
+}
+
 // -------------------------------------------------
 
 #define MAX_PLAYERS (32)
@@ -493,14 +560,19 @@ int main(void)
     dc_handle = GetDC(NULL);
     ASSERT_TO(dc_handle == NULL, end_close_proc);
 
-    while(get_local_player()){      // while we in active game
-        struct location_t local_loc = player_get_location(get_local_player());
+    unsigned char* local_player = NULL;
+    while(local_player = get_local_player()){      // while we in active game
+        struct location_t local_loc = player_get_location(local_player);
+        struct location_t view_offset = player_get_view_offset(local_player);
+        local_loc.x += view_offset.x;
+        local_loc.y += view_offset.y;
+        local_loc.z += view_offset.z;
 
         int i;
         for (i = 1; i < MAX_PLAYERS; i++){
             unsigned char* player = get_player(i);
             if (player == NULL) continue;
-            if (player == get_local_player()) continue; // ignore us.
+            if (player == local_player) continue; // ignore us.
             if (!player_is_real(player)) continue;
 
             // is alive?
@@ -508,25 +580,23 @@ int main(void)
             if (player_health < 1 || player_health > 100) continue; 
 
             // if player in my team skip.
-            if (player_get_team(player) == player_get_team(get_local_player())) continue;
-            
+            if (player_get_team(player) == player_get_team(local_player)) continue;
             // TODO
+            // struct location_t aim_punch = player_get_aim_punch(get_local_player());
             // if (!player_get_spotted(player)){
                 // continue;
             // }
 
-            // glow_enenmy(player); // WIP:
-            struct location_t view_angles = get_view_angles();
-
-            // Draw head of enemy.
             struct location_t head_loc = player_get_head_location(player);
             if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) continue;
+            if (!is_visible(head_loc, local_loc)) continue;
 
             struct position_t head_pos = game_to_screen(head_loc);
             if (head_pos.x <= 0 || head_pos.y <= 0) continue;
             if (head_pos.x >= SCREEN_WIDTH || head_pos.y >= SCREEN_HEIGHT) continue;
 
             float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
+            // Draw head of enemy.
             draw_enemy(head_pos, enemy_distance);
         }
     }
