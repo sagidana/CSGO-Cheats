@@ -541,8 +541,6 @@ int is_visible( struct location_t enemy_location,
 
 #define MAX_PLAYERS (32)
 
-// GetAsyncKeyState
-
 int main(void)
 {
     struct position_t enemies_positions[MAX_PLAYERS];
@@ -562,9 +560,6 @@ int main(void)
 
     unsigned char* local_player = NULL;
     while(local_player = get_local_player()){      // while we in active game
-
-        // if (!(GetAsyncKeyState(VK_CAPITAL) & 0x8000)) continue;
-
         struct location_t local_loc = player_get_location(local_player);
         struct location_t view_offset = player_get_view_offset(local_player);
         local_loc.x += view_offset.x;
@@ -582,8 +577,9 @@ int main(void)
             int player_health = player_get_health(player);
             if (player_health < 1 || player_health > 100) continue; 
 
-            // // if player in my team skip.
-            // if (player_get_team(player) == player_get_team(local_player)) continue;
+            // if player in my team skip.
+            if (player_get_team(player) == player_get_team(local_player)) continue;
+
             // TODO
             // struct location_t aim_punch = player_get_aim_punch(get_local_player());
             // if (!player_get_spotted(player)){
@@ -600,50 +596,68 @@ int main(void)
 
             float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
 
-
-            if ((GetAsyncKeyState(VK_CAPITAL) & 0x8000)){
-                if (player_get_spotted(player)){
-                    // // aimbot
-                    // INPUT input = { 0 };
-
-                    // // Set up the mouse movement event
-                    // input.type = INPUT_MOUSE;
-                    // input.mi.dwFlags = MOUSEEVENTF_MOVE;
-                    // input.mi.dx = head_pos.x;
-                    // input.mi.dy = head_pos.y;
-
-                    // // Send the mouse movement event
-                    // SendInput(1, &input, sizeof(INPUT));
-                    // // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                    // // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                    // //
-                    // //
-                    // // if (SetCursorPos(head_pos.x, head_pos.y)){
-                        // // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                        // // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                    // // }
-
-                    // trigger
+            if (player_get_spotted(player)){
+                if ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
+                    // aimbot
                     POINT cursor_pos;
-                    if (GetCursorPos(&cursor_pos)){
-                        float head_size = 2;
-                        head_size = (int)(head_size * 2000 / enemy_distance);
+                    GetCursorPos(&cursor_pos);
+                    // while ( cursor_pos.x != (int)head_pos.x &&
+                            // cursor_pos.y != (int)head_pos.y){
+                        INPUT input = { 0 };
 
-                        if (
-                                cursor_pos.x <= (int)head_pos.x + head_size && 
-                                cursor_pos.x >= (int)head_pos.x - head_size && 
-                                cursor_pos.y <= (int)head_pos.y + head_size && 
-                                cursor_pos.y >= (int)head_pos.y - head_size
-                            ){
-                            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                        }
-                        // printf("(%d, %d) -> (%f, %f)\n",
-                                // cursor_pos.x, cursor_pos.y,
-                                // head_pos.x, head_pos.y);
-                    }
+                        // Set up the mouse movement event
+                        input.type = INPUT_MOUSE;
+                        input.mi.dwFlags = MOUSEEVENTF_MOVE;
+
+                        int x_dist = (int)head_pos.x - cursor_pos.x;
+                        int y_dist = (int)head_pos.y - cursor_pos.y;
+
+                        input.mi.dx = x_dist;
+                        // if (x_dist > 10) input.mi.dx = 10;
+                        // if (x_dist < -10) input.mi.dx = -10;
+                        // else input.mi.dx = x_dist;
+
+                        input.mi.dy = y_dist;
+                        // if (y_dist > 10) input.mi.dy = 10;
+                        // if (y_dist < -10) input.mi.dy = -10;
+                        // else input.mi.dy = y_dist;
+                        // printf("(%d, %d)\n", input.mi.dx, input.mi.dy);
+
+                        // Send the mouse movement event
+                        SendInput(1, &input, sizeof(INPUT));
+                    // }
+                    // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                    // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                    //
+                    //
+                    // if (SetCursorPos(head_pos.x, head_pos.y)){
+                        // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                        // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                    // }
+
+                    // // trigger
+                    // POINT cursor_pos;
+                    // if (GetCursorPos(&cursor_pos)){
+                        // float head_size = 2;
+                        // head_size = (int)(head_size * 2000 / enemy_distance);
+
+                        // if (
+                                // cursor_pos.x <= (int)head_pos.x + head_size && 
+                                // cursor_pos.x >= (int)head_pos.x - head_size && 
+                                // cursor_pos.y <= (int)head_pos.y + head_size && 
+                                // cursor_pos.y >= (int)head_pos.y - head_size
+                            // ){
+                            // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                            // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                        // }
+                        // // printf("(%d, %d) -> (%f, %f)\n",
+                                // // cursor_pos.x, cursor_pos.y,
+                                // // head_pos.x, head_pos.y);
+                    // }
                 }
             }
+
+            // if (!(GetAsyncKeyState(VK_CAPITAL) & 0x8000)) continue;
 
             // Draw head of enemy.
             draw_enemy(head_pos, enemy_distance);
