@@ -513,11 +513,10 @@ struct location_t to_vector(struct location_t view)
     return ret;
 }
 
-int is_visible( struct location_t enemy_location,
-                struct location_t local_location)
+double get_angle(   struct location_t enemy_location,
+                    struct location_t local_location,
+                    struct location_t view_angles)
 {
-    struct location_t view_angles = get_view_angles();
-
     struct location_t aim_loc = to_vector(view_angles);
 
     double pos_x = enemy_location.x - local_location.x;
@@ -532,14 +531,164 @@ int is_visible( struct location_t enemy_location,
     double angle = acos(dot_product / distance);
 
     angle = angle * 180.0 / M_PI;
+    return angle;
+}
 
+double in_fov(  struct location_t enemy_location,
+                struct location_t local_location,
+                struct location_t view_angles)
+{
+
+    double angle = get_angle(enemy_location, local_location, view_angles);
     if (angle < 90.0 / 2.0) return 1;
     return 0;
 }
 
 // -------------------------------------------------
-
 #define MAX_PLAYERS (32)
+
+void wallhack(  unsigned char *local_player,
+                struct location_t local_loc,
+                struct location_t view_angles)
+{
+    int i;
+    for (i = 1; i < MAX_PLAYERS; i++){
+        unsigned char* player = get_player(i);
+        if (player == NULL) continue;
+        if (player == local_player) continue; // ignore us.
+        if (!player_is_real(player)) continue;
+
+        // is alive?
+        int player_health = player_get_health(player);
+        if (player_health < 1 || player_health > 100) continue; 
+
+        // if player in my team skip.
+        if (player_get_team(player) == player_get_team(local_player)) continue;
+
+        struct location_t head_loc = player_get_head_location(player);
+        if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) continue;
+        if (!in_fov(head_loc, local_loc, view_angles)) continue;
+
+        struct position_t head_pos = game_to_screen(head_loc);
+        if (head_pos.x <= 0 || head_pos.y <= 0) continue;
+        if (head_pos.x >= SCREEN_WIDTH || head_pos.y >= SCREEN_HEIGHT) continue;
+
+        float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
+
+        // Draw head of enemy.
+        draw_enemy(head_pos, enemy_distance);
+    }
+}
+
+unsigned char* find_closest_enemy(  unsigned char *local_player,
+                                    struct location_t local_loc,
+                                    struct location_t view_angles)
+{
+    unsigned char *found_player = NULL;
+    double closest_angle = 9999999;
+    int i;
+
+    for (i = 1; i < MAX_PLAYERS; i++){
+        unsigned char* player = get_player(i);
+        if (player == NULL) continue;
+        if (player == local_player) continue; // ignore us.
+        if (!player_is_real(player)) continue;
+
+        // is alive?
+        int player_health = player_get_health(player);
+        if (player_health < 1 || player_health > 100) continue; 
+
+        // if player in my team skip.
+        if (player_get_team(player) == player_get_team(local_player)) continue;
+
+        // struct location_t aim_punch = player_get_aim_punch(get_local_player());
+
+        struct location_t head_loc = player_get_head_location(player);
+        if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) continue;
+        if (!in_fov(head_loc, local_loc, view_angles)) continue;
+        if (!player_get_spotted(player)) continue;
+
+        // struct position_t head_pos = game_to_screen(head_loc);
+        // if (head_pos.x <= 0 || head_pos.y <= 0) continue;
+        // if (head_pos.x >= SCREEN_WIDTH || head_pos.y >= SCREEN_HEIGHT) continue;
+
+        // float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
+
+        double curr_angle = get_angle(head_loc, local_loc, view_angles);
+        if (curr_angle < closest_angle){
+            closest_angle = curr_angle;
+            found_player = player;
+        }
+    }
+
+    return found_player;
+}
+
+void aimbot(   unsigned char *local_player,
+                struct location_t local_loc,
+                struct location_t view_angles)
+{
+    unsigned char *enemy = find_closest_enemy(local_player, local_loc, view_angles);
+    if (enemy == NULL) return;
+
+    while ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
+        if (!player_get_spotted(enemy)) continue;
+
+        struct location_t head_loc = player_get_head_location(enemy);
+        if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) break;
+        struct position_t head_pos = game_to_screen(head_loc);
+
+        POINT cursor_pos;
+        GetCursorPos(&cursor_pos);
+        INPUT input = { 0 };
+
+        // Set up the mouse movement event
+        input.type = INPUT_MOUSE;
+        input.mi.dwFlags = MOUSEEVENTF_MOVE;
+
+        int x_dist = (int)head_pos.x - cursor_pos.x;
+        int y_dist = (int)head_pos.y - cursor_pos.y;
+
+        input.mi.dx = x_dist;
+        input.mi.dy = y_dist;
+        // Send the mouse movement event
+        SendInput(1, &input, sizeof(INPUT));
+    }
+}
+
+void trigger(   unsigned char *local_player,
+                struct location_t local_loc,
+                struct location_t view_angles)
+{
+    unsigned char *enemy = find_closest_enemy(local_player, local_loc, view_angles);
+    if (enemy == NULL) return;
+
+    while ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
+        if (!player_get_spotted(enemy)) continue;
+
+        struct location_t head_loc = player_get_head_location(enemy);
+        if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) break;
+        struct position_t head_pos = game_to_screen(head_loc);
+        float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
+
+        // trigger
+        POINT cursor_pos;
+        if (GetCursorPos(&cursor_pos)){
+            float head_size = 2;
+            head_size = (int)(head_size * 2000 / enemy_distance);
+
+            if (
+                    cursor_pos.x <= (int)head_pos.x + head_size && 
+                    cursor_pos.x >= (int)head_pos.x - head_size && 
+                    cursor_pos.y <= (int)head_pos.y + head_size && 
+                    cursor_pos.y >= (int)head_pos.y - head_size
+                ){
+                mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+            }
+        }
+    }
+}
 
 int main(void)
 {
@@ -565,102 +714,13 @@ int main(void)
         local_loc.x += view_offset.x;
         local_loc.y += view_offset.y;
         local_loc.z += view_offset.z;
+        struct location_t view_angles = get_view_angles();
 
-        int i;
-        for (i = 1; i < MAX_PLAYERS; i++){
-            unsigned char* player = get_player(i);
-            if (player == NULL) continue;
-            if (player == local_player) continue; // ignore us.
-            if (!player_is_real(player)) continue;
+        wallhack(local_player, local_loc, view_angles);
 
-            // is alive?
-            int player_health = player_get_health(player);
-            if (player_health < 1 || player_health > 100) continue; 
-
-            // if player in my team skip.
-            if (player_get_team(player) == player_get_team(local_player)) continue;
-
-            // TODO
-            // struct location_t aim_punch = player_get_aim_punch(get_local_player());
-            // if (!player_get_spotted(player)){
-                // continue;
-            // }
-
-            struct location_t head_loc = player_get_head_location(player);
-            if (head_loc.x == -1 && head_loc.y == -1 && head_loc.z == -1) continue;
-            if (!is_visible(head_loc, local_loc)) continue;
-
-            struct position_t head_pos = game_to_screen(head_loc);
-            if (head_pos.x <= 0 || head_pos.y <= 0) continue;
-            if (head_pos.x >= SCREEN_WIDTH || head_pos.y >= SCREEN_HEIGHT) continue;
-
-            float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
-
-            if (player_get_spotted(player)){
-                if ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
-                    // aimbot
-                    POINT cursor_pos;
-                    GetCursorPos(&cursor_pos);
-                    // while ( cursor_pos.x != (int)head_pos.x &&
-                            // cursor_pos.y != (int)head_pos.y){
-                        INPUT input = { 0 };
-
-                        // Set up the mouse movement event
-                        input.type = INPUT_MOUSE;
-                        input.mi.dwFlags = MOUSEEVENTF_MOVE;
-
-                        int x_dist = (int)head_pos.x - cursor_pos.x;
-                        int y_dist = (int)head_pos.y - cursor_pos.y;
-
-                        input.mi.dx = x_dist;
-                        // if (x_dist > 10) input.mi.dx = 10;
-                        // if (x_dist < -10) input.mi.dx = -10;
-                        // else input.mi.dx = x_dist;
-
-                        input.mi.dy = y_dist;
-                        // if (y_dist > 10) input.mi.dy = 10;
-                        // if (y_dist < -10) input.mi.dy = -10;
-                        // else input.mi.dy = y_dist;
-                        // printf("(%d, %d)\n", input.mi.dx, input.mi.dy);
-
-                        // Send the mouse movement event
-                        SendInput(1, &input, sizeof(INPUT));
-                    // }
-                    // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                    // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                    //
-                    //
-                    // if (SetCursorPos(head_pos.x, head_pos.y)){
-                        // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                        // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                    // }
-
-                    // // trigger
-                    // POINT cursor_pos;
-                    // if (GetCursorPos(&cursor_pos)){
-                        // float head_size = 2;
-                        // head_size = (int)(head_size * 2000 / enemy_distance);
-
-                        // if (
-                                // cursor_pos.x <= (int)head_pos.x + head_size && 
-                                // cursor_pos.x >= (int)head_pos.x - head_size && 
-                                // cursor_pos.y <= (int)head_pos.y + head_size && 
-                                // cursor_pos.y >= (int)head_pos.y - head_size
-                            // ){
-                            // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
-                            // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
-                        // }
-                        // // printf("(%d, %d) -> (%f, %f)\n",
-                                // // cursor_pos.x, cursor_pos.y,
-                                // // head_pos.x, head_pos.y);
-                    // }
-                }
-            }
-
-            // if (!(GetAsyncKeyState(VK_CAPITAL) & 0x8000)) continue;
-
-            // Draw head of enemy.
-            draw_enemy(head_pos, enemy_distance);
+        if ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
+            aimbot(local_player, local_loc, view_angles);
+            // trigger(local_player, local_loc, view_angles);
         }
     }
     
