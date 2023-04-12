@@ -685,6 +685,7 @@ void trigger(   unsigned char *local_player,
                 ){
                 mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
                 mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                return;
             }
         }
     }
@@ -719,8 +720,8 @@ int main(void)
         wallhack(local_player, local_loc, view_angles);
 
         if ((GetAsyncKeyState(VK_MBUTTON) & 0x8000)){
-            aimbot(local_player, local_loc, view_angles);
-            // trigger(local_player, local_loc, view_angles);
+            // aimbot(local_player, local_loc, view_angles);
+            trigger(local_player, local_loc, view_angles);
         }
     }
     
