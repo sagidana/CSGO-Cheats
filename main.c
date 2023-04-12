@@ -582,8 +582,8 @@ int main(void)
             int player_health = player_get_health(player);
             if (player_health < 1 || player_health > 100) continue; 
 
-            // if player in my team skip.
-            if (player_get_team(player) == player_get_team(local_player)) continue;
+            // // if player in my team skip.
+            // if (player_get_team(player) == player_get_team(local_player)) continue;
             // TODO
             // struct location_t aim_punch = player_get_aim_punch(get_local_player());
             // if (!player_get_spotted(player)){
@@ -599,6 +599,52 @@ int main(void)
             if (head_pos.x >= SCREEN_WIDTH || head_pos.y >= SCREEN_HEIGHT) continue;
 
             float enemy_distance = distance(head_loc.x, head_loc.y, local_loc.x, local_loc.y);
+
+
+            if ((GetAsyncKeyState(VK_CAPITAL) & 0x8000)){
+                if (player_get_spotted(player)){
+                    // // aimbot
+                    // INPUT input = { 0 };
+
+                    // // Set up the mouse movement event
+                    // input.type = INPUT_MOUSE;
+                    // input.mi.dwFlags = MOUSEEVENTF_MOVE;
+                    // input.mi.dx = head_pos.x;
+                    // input.mi.dy = head_pos.y;
+
+                    // // Send the mouse movement event
+                    // SendInput(1, &input, sizeof(INPUT));
+                    // // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                    // // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                    // //
+                    // //
+                    // // if (SetCursorPos(head_pos.x, head_pos.y)){
+                        // // mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                        // // mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                    // // }
+
+                    // trigger
+                    POINT cursor_pos;
+                    if (GetCursorPos(&cursor_pos)){
+                        float head_size = 2;
+                        head_size = (int)(head_size * 2000 / enemy_distance);
+
+                        if (
+                                cursor_pos.x <= (int)head_pos.x + head_size && 
+                                cursor_pos.x >= (int)head_pos.x - head_size && 
+                                cursor_pos.y <= (int)head_pos.y + head_size && 
+                                cursor_pos.y >= (int)head_pos.y - head_size
+                            ){
+                            mouse_event(MOUSEEVENTF_LEFTDOWN, 0, 0, 0, 0);
+                            mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
+                        }
+                        // printf("(%d, %d) -> (%f, %f)\n",
+                                // cursor_pos.x, cursor_pos.y,
+                                // head_pos.x, head_pos.y);
+                    }
+                }
+            }
+
             // Draw head of enemy.
             draw_enemy(head_pos, enemy_distance);
         }
